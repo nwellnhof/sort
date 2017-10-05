@@ -847,50 +847,74 @@ static void TIM_SORT_RESIZE(TEMP_STORAGE_T *store, const size_t new_size) {
 
 static void TIM_SORT_MERGE(SORT_TYPE *dst, const TIM_SORT_RUN_T *stack, const int stack_curr,
                            TEMP_STORAGE_T *store) {
-  const int64_t A = stack[stack_curr - 2].length;
-  const int64_t B = stack[stack_curr - 1].length;
-  const int64_t curr = stack[stack_curr - 2].start;
+  const size_t A = stack[stack_curr - 2].length;
+  const size_t B = stack[stack_curr - 1].length;
+  const size_t curr = stack[stack_curr - 2].start;
   SORT_TYPE *storage;
-  int64_t i, j, k;
+  SORT_TYPE *a;
+  SORT_TYPE *b;
+  SORT_TYPE *d;
+  SORT_TYPE *e;
   TIM_SORT_RESIZE(store, MIN(A, B));
   storage = store->storage;
 
   /* left merge */
   if (A < B) {
     memcpy(storage, &dst[curr], A * sizeof(SORT_TYPE));
-    i = 0;
-    j = curr + A;
+    a = storage;
+    b = &dst[curr + A];
+    d = &dst[curr];
+    e = &dst[curr + A + B];
 
-    for (k = curr; k < curr + A + B; k++) {
-      if ((i < A) && (j < curr + A + B)) {
-        if (SORT_CMP(storage[i], dst[j]) <= 0) {
-          dst[k] = storage[i++];
-        } else {
-          dst[k] = dst[j++];
+    while (1) {
+      if (SORT_CMP(*a, *b) <= 0) {
+        *d++ = *a++;
+
+        if (d >= b) {
+          break;
         }
-      } else if (i < A) {
-        dst[k] = storage[i++];
       } else {
-        dst[k] = dst[j++];
+        *d++ = *b++;
+
+        if (b >= e) {
+          do {
+            *d++ = *a++;
+          } while (d < e);
+
+          break;
+        }
       }
     }
   } else {
     /* right merge */
     memcpy(storage, &dst[curr + A], B * sizeof(SORT_TYPE));
-    i = B - 1;
-    j = curr + A - 1;
+    a = &dst[curr + A - 1];
+    b = &storage[B - 1];
+    d = &dst[curr + A + B - 1];
+    e = &dst[curr];
 
-    for (k = curr + A + B - 1; k >= curr; k--) {
-      if ((i >= 0) && (j >= curr)) {
-        if (SORT_CMP(dst[j], storage[i]) > 0) {
-          dst[k] = dst[j--];
-        } else {
-          dst[k] = storage[i--];
+    while (1) {
+      if (SORT_CMP(*a, *b) <= 0) {
+        *d-- = *b;
+
+        if (d <= a) {
+          break;
         }
-      } else if (i >= 0) {
-        dst[k] = storage[i--];
+
+        b--;
       } else {
-        dst[k] = dst[j--];
+        *d-- = *a;
+
+        if (a <= e) {
+          while (d > e) {
+            *d-- = *b--;
+          }
+
+          *d = *b;
+          break;
+        }
+
+        a--;
       }
     }
   }
